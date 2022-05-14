@@ -49,21 +49,21 @@ link1="https://bin.equinox.io/c/4VmDzA7iaHb/ngrok-stable-linux-arm.tgz"
 file="ngrok-v3-stable-linux-arm.tgz"
 file1="ngrok-stable-linux-arm.tgz"
 
-elif [[ ${linux} == "Linux" ]] && [[ ${arch} == *"arm"* ]]
+elif [[ ${linux} == *"Linux"* ]] && [[ ${arch} == *"arm"* ]]
 then
 link="https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-arm.tgz"
 link1="https://bin.equinox.io/c/4VmDzA7iaHb/ngrok-stable-linux-arm.tgz"
 file="ngrok-v3-stable-linux-arm.tgz"
 file1="ngrok-stable-linux-arm.tgz"
 
-elif [[ ${linux} == "Linux" ]] && [[ ${arch} == "arm64" ]]
+elif [[ ${linux} == *"Linux"* ]] && [[ ${arch} == "arm64" ]]
 then
 link="https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-arm64.tgz"
 link1="https://bin.equinox.io/c/4VmDzA7iaHb/ngrok-stable-linux-arm64.tgz"
 file="ngrok-v3-stable-linux-arm64.tgz"
 file1="ngrok-stable-linux-arm64.tgz"
 
-elif [[ ${linux} == "Linux" ]] && [[ ${arch} == "amd64"  ]]
+elif [[ ${linux} == *"Linux"* ]] && [[ ${arch} == "amd64"  ]]
 then
 link="https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz"
 link1="https://bin.equinox.io/c/4VmDzA7iaHb/ngrok-stable-linux-amd64.tgz"
