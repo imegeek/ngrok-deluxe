@@ -1,0 +1,325 @@
+#!/bin/bash
+
+RAND() {
+cat /dev/urandom | tr -dc 'a-z' | fold -w ${1:-} | head -n 1
+}
+
+i=1
+n=1
+
+R0="$(printf '\033[00m')"
+R1="$(printf '\033[01m')"
+R2="$(printf '\033[02m')"
+R3="$(printf '\033[03m')"
+R4="$(printf '\033[04m')"
+C0="$(printf '\033[90m')"
+C1="$(printf '\033[91m')"
+C2="$(printf '\033[92m')"
+C3="$(printf '\033[93m')"
+C4="$(printf '\033[94m')"
+C5="$(printf '\033[95m')"
+C6="$(printf '\033[96m')"
+C7="$(printf '\033[97m')"
+
+if [[ ! -f .history.nd ]]
+then
+touch .history.nd
+fi
+
+if [[ -f forward.list ]] && [[ -f link.list ]] && [[ -f ngrok.tunnels ]]
+then
+rm forward.list link.list ngrok.tunnels
+fi
+
+arch=$(dpkg --print-architecture)
+android=$(uname -o | grep "Android")
+linux=$(uname -o | grep "Linux")
+
+if [[ ${android} == "Android"  ]] && [[ ${arch} == "aarch64" ]]
+then
+link="https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-arm64.tgz"
+link1="https://bin.equinox.io/c/4VmDzA7iaHb/ngrok-stable-linux-arm64.tgz"
+file="ngrok-v3-stable-linux-arm64.tgz"
+file1="ngrok-stable-linux-arm64.tgz"
+
+elif [[ ${android} == "Android" ]] && [[ ${arch} == *"arm"* ]]
+then
+link="https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-arm.tgz"
+link1="https://bin.equinox.io/c/4VmDzA7iaHb/ngrok-stable-linux-arm.tgz"
+file="ngrok-v3-stable-linux-arm.tgz"
+file1="ngrok-stable-linux-arm.tgz"
+
+elif [[ ${linux} == "Linux" ]] && [[ ${arch} == *"arm"* ]]
+then
+link="https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-arm.tgz"
+link1="https://bin.equinox.io/c/4VmDzA7iaHb/ngrok-stable-linux-arm.tgz"
+file="ngrok-v3-stable-linux-arm.tgz"
+file1="ngrok-stable-linux-arm.tgz"
+
+elif [[ ${linux} == "Linux" ]] && [[ ${arch} == "arm64" ]]
+then
+link="https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-arm64.tgz"
+link1="https://bin.equinox.io/c/4VmDzA7iaHb/ngrok-stable-linux-arm64.tgz"
+file="ngrok-v3-stable-linux-arm64.tgz"
+file1="ngrok-stable-linux-arm64.tgz"
+
+elif [[ ${linux} == "Linux" ]] && [[ ${arch} == "amd64"  ]]
+then
+link="https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz"
+link1="https://bin.equinox.io/c/4VmDzA7iaHb/ngrok-stable-linux-amd64.tgz"
+
+file="ngrok-v3-stable-linux-amd64.tgz"
+file1="ngrok-stable-linux-amd64.tgz"
+fi
+
+if [[ ! -f ngrok3 ]]
+then
+bash <(curl -sL raw.githubusercontent.com/abhackerofficial/download.sh/master/download) ${link}
+if [[ -f ${file} ]]
+then
+tar -xf ${file}
+rm ${file}
+mv ngrok ngrok3
+else
+exit 1
+fi
+fi
+
+if [[ ! -f ngrok2 ]]
+then
+bash <(curl -sL raw.githubusercontent.com/abhackerofficial/download.sh/master/download) ${link1}
+if [[ -f ${file1} ]]
+then
+tar -xf ${file1}
+rm ${file1}
+mv ngrok ngrok2
+else
+exit 1
+fi
+fi
+
+if [[ ! -d $HOME/.config/ngrok ]]
+then
+mkdir -p $HOME/.config/ngrok
+fi
+
+if [[ ! -d $HOME/.ngrok2 ]]
+then
+mkdir -p $HOME/.ngrok2
+fi
+
+if [[ -f ngrok.token ]]
+then
+$(cat ngrok.token > ngrok.yml)
+fi
+
+setup.ngrok()
+{
+NUM=$((i++))
+LOOP=$((n++))
+
+if [[ ! -f ngrok.token ]]
+then
+echo "You need to add authtoken to ngrok to access this tool."
+exit 1
+fi
+
+conn_type=${read_arg1#proto:}
+conn_port=${read_arg2#port:}
+RANDCHAR=$(RAND 10)
+
+cat <<- CONF >> ngrok.tunnels
+${LOOP}. proto: ${conn_type} addr: ${conn_port}
+CONF
+
+get_tunnel=$(echo "proto: ${conn_type} addr: ${conn_port}")
+check_tunnel=$(cat ngrok.tunnels | awk '{$1=""; print$0}' | cut -c 2- | grep "${get_tunnel}" | wc -l)
+
+if [[ ${check_tunnel} -gt 1 ]]
+then
+echo "already existing: ${get_tunnel}"
+else
+
+cat <<- CONF >> ngrok.yml
+   ${RANDCHAR}:
+    proto: ${conn_type}
+    addr: ${conn_port}
+CONF
+
+echo "link${NUM}=\$(curl -s -N http://127.0.0.1:4040/api/tunnels | jq . | grep -wns $RANDCHAR -A 2 | grep public_url | awk '{print \$3}' | tr -d '\",')" >> link.list
+
+# printf "${NUM}. ${conn_type}: \$link${NUM} --> ${conn_port}
+
+printf "${NUM}. \$link${NUM} --> ${conn_port}
+" >> forward.list
+
+cat <<- CONF > ngrok.conf
+#!/usr/bin/bash
+
+stop() {
+checkngrok=$(ps aux | grep -o "ngrok" | head -n1)
+
+if [[ \$checkngrok == *'ngrok'* ]]; then
+pkill -f -2 ngrok > /dev/null 2>&1
+killall -2 ngrok > /dev/null 2>&1
+fi
+}
+
+stop &> /dev/null
+
+if [[ \${1} == "ngrok2" ]]
+then
+./ngrok2 start --all > /dev/null 2>&1 &
+else
+./ngrok3 start --all > /dev/null 2>&1 &
+fi
+
+_ngrok()
+{
+CONF
+
+$(cat link.list >> ngrok.conf)
+
+cat <<- CONF >> ngrok.conf
+}
+
+printf "[Starting ngrok-deluxe ...]\r"
+_ngrok
+if [[ -z \$link1 ]];then
+printf "\$link1" &> /dev/null
+sleep 5
+_ngrok
+printf "\$link1" &> /dev/null
+fi
+if [[ -z \$link1 ]];then
+printf "Ngrok error, debug: ./ngrok\n"
+exit
+fi
+
+printf "Forwarding all ports.      
+Links listed here:
+CONF
+$(cat forward.list >> ngrok.conf)
+printf "\"" >> ngrok.conf
+
+echo "added: proto: ${conn_type} addr: ${conn_port}"
+cp ngrok.yml ngrok.yml.previous
+fi
+}
+
+while true
+do
+if [[ ${#@} -lt 1 ]]
+then
+history -r .history.nd
+read -r -e -p $'\e[4;0;0;0;0;0;0;0;0;4mcmd\e[0m > \e[0m' command
+fi
+
+if [[ $(cat .history.nd) == *"${command}"* ]]
+then
+sed -i "/${command}/d" .history.nd &> /dev/null
+sed -i '/^$/d' .history.nd
+echo "${command}" >> .history.nd
+else
+echo "${command}" >> .history.nd
+fi
+
+read_arg0=$(echo "${command}" | awk -v a=1 -F" " '{print $a}')
+read_arg1=$(echo "${command}" | awk -v a=2 -F" " '{print $a}')
+read_arg2=$(echo "${command}" | awk -v a=3 -F" " '{print $a}')
+
+if [[ ${read_arg0} == "set" ]]
+then
+if [[ ${read_arg1} == "proto:"*  ]] && [[ ${read_arg2} == "port:"*  ]]
+then
+setup.ngrok
+elif [[ ${read_arg1} == "authtoken" ]]
+then
+mkdir -p $HOME/.config/ngrok
+
+cat <<- CONF > ngrok.token
+version: "2"
+authtoken: ${read_arg2}
+
+tunnels:
+CONF
+echo "ngrok authtoken configured."
+
+else
+echo -e "${g0SIGN} Valid parameters for the \"set\" are: authtoken, 'proto:... port:...'"
+fi
+
+elif [[ ${command} == "help" ]]
+then
+echo -e "
+${B0}Console Commands${R0}
+================
+
+    Command     Description
+    -------     -----------
+    ${C2}start${R0}       Command to start ngrok-deluxe instance.
+    ${C2}show${R0}        Command to show options${R1}s${R0}.
+    ${C2}exit${R0}        Command to exit ngrok-deluxe instance.
+    ${C2}set${R0}         Command to set configuration${R1}s${R0}.
+    ${C2}help${R0}        Command to show help meunu.
+    ${C2}clear${R0}       Command to clear screen.
+
+${B0}ngrok-deluxe${R0}
+==========
+"
+
+echo -e "\`${C4}ngrok deluxe${R0}\` allow you to create one and more tunnels at once."
+
+
+elif [[ ${command} == "exit" ]]
+then
+echo "Stoping ..."
+exit 0
+
+elif [[ ${read_arg0} == "show" ]]
+then
+if [[ ${#read_arg1} -gt 0 ]]
+then
+if [[ ${read_arg1} == "config" ]]
+then
+if [[ -f ngrok.tunnels ]]
+then
+   echo "$(cat ngrok.tunnels)"
+else
+echo "Configuration not found."
+fi
+
+elif [[ ${read_arg1} == "info" ]]
+then
+   echo "ngrok authtoken : ${ngtoken}"
+fi
+
+else
+echo -e "${g0SIGN} Valid parameters for the \"show\" are: info, config"
+fi
+
+elif [[ ${command} == "clear" ]]
+then
+clear
+
+elif [[ ${command} == "start" || ${1} == "start" ]]
+then
+if [[ -f ngrok.conf ]]
+then
+cp ngrok.yml.previous ~/.config/ngrok/ngrok.yml
+cp ngrok.yml.previous ~/.ngrok2/ngrok.yml
+if [[ ${read_arg1} == "ngrok2" || ${2} == "ngrok2" ]]
+then
+exec bash ngrok.conf ngrok2
+exit 0
+else
+exec bash ngrok.conf
+fi
+else
+echo "Configuration not found."
+exit 1
+fi
+fi
+
+done
+
